@@ -48,7 +48,6 @@ chrome.runtime.onMessage.addListener((msg, sender) => {
         { type: 'mouseReleased', x, y, button: 'left', clickCount: 1 },
         () => {
           console.log(`✅ Click enviado no botão Skip no tab ${tabId}`);
-          // NÃO fecha mais o debugger
         }
       );
     }

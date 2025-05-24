@@ -1,0 +1,31 @@
+{
+  "manifest_version": 3,
+  "name": "YouTube Auto Skip Ads",
+  "version": "3.4",
+  "description": "Auto skip YouTube ads with debugger always on.",
+  "permissions": [
+    "storage",
+    "scripting",
+    "tabs",
+    "debugger"
+  ],
+  "host_permissions": [
+    "*://www.youtube.com/*"
+  ],
+  "background": {
+    "service_worker": "background.js"
+  },
+  "action": {
+    "default_icon": "icon.png",
+    "default_title": "YouTube Auto Skip Ads"
+  },
+  "web_accessible_resources": [
+    {
+      "resources": ["injected.js"],
+      "matches": ["*://www.youtube.com/*"]
+    }
+  ],
+  "icons": {
+    "48": "icon.png"
+  }
+}

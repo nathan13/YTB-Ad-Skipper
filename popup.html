@@ -1,0 +1,24 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <style>
+    body { font-family: sans-serif; padding: 10px; width: 150px; }
+    button { width: 100%; padding: 5px; font-size: 14px; }
+  </style>
+</head>
+<body>
+  <button id="toggle">Desligar</button>
+  <script>
+    const btn = document.getElementById('toggle');
+    chrome.storage.local.get('enabled', ({ enabled = true }) => {
+      btn.textContent = enabled ? 'Desligar' : 'Ligar';
+    });
+    btn.addEventListener('click', async () => {
+      const { enabled = true } = await chrome.storage.local.get('enabled');
+      const novo = !enabled;
+      await chrome.storage.local.set({ enabled: novo });
+      btn.textContent = novo ? 'Desligar' : 'Ligar';
+    });
+  </script>
+</body>
+</html>

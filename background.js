@@ -75,9 +75,27 @@ chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
         // console.log(`[BG] Extension disabled, 'adPlaybackStarted' for tab ${tabId} ignored.`);
       }
     });
-    return false; // Synchronous handling for this message type
+    return false; // Synchronous handling for this message type, no sendResponse explicitly called
   } 
   
+  else if (msg.action === 'adPlaybackEnded' && sender.tab) {
+    console.log(`[BG] '${msg.action}' received from tab ${sender.tab.id}`);
+    chrome.storage.local.get('enabled', ({ enabled = true }) => {
+      if (!enabled) {
+        console.log(`[BG] Extension disabled on tab ${sender.tab.id}, ignoring adPlaybackEnded.`);
+        return; // Important to return here if not enabled
+      }
+      // Check current state of debugger for this tab
+      if (attachedTabs[sender.tab.id] === true) {
+        console.log(`[BG] Ad playback ended and debugger is active for tab ${sender.tab.id}. Detaching.`);
+        detachDebugger(sender.tab.id);
+      } else {
+        console.log(`[BG] Ad playback ended, but debugger was not active for tab ${sender.tab.id} (state: ${attachedTabs[sender.tab.id]}). No action needed.`);
+      }
+    });
+    return true; // Indicates that sendResponse might be called (or that the listener is async)
+  }
+
   else if (msg.action === 'skipAd') {
     chrome.storage.local.get('enabled', ({ enabled = true }) => {
       if (!enabled) {
@@ -91,7 +109,6 @@ chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
         return;
       }
 
-      // ** Crucial Change: Only proceed if debugger is confirmed to be active (state === true) **
       if (attachedTabs[tabId] !== true) {
         console.warn(`[BG] Received 'skipAd' for tab ${tabId}, but debugger is not confirmed active (state: ${attachedTabs[tabId]}). Click will NOT be attempted.`);
         return; 
@@ -104,8 +121,6 @@ chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
         () => {
           if (chrome.runtime.lastError) {
             console.error(`[BG] Mouse press error for tab ${tabId}: ${chrome.runtime.lastError.message}`);
-            // Consider if detach is appropriate even on error, depending on error type.
-            // For now, only detach on full success.
             return;
           }
           chrome.debugger.sendCommand(
@@ -123,10 +138,12 @@ chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
         }
       );
     });
-    return true; // Crucial: Indicates that sendResponse will be used asynchronously
+    return true; 
   }
   
-  return false; // Default for any other unhandled messages
+  // Default return value if no message action matches
+  console.log(`[BG] Unhandled message action: ${msg.action} from tab ${tabId}`);
+  return false; 
 });
 
 chrome.debugger.onDetach.addListener((source, reason) => {
@@ -139,10 +156,8 @@ chrome.debugger.onDetach.addListener((source, reason) => {
 
 chrome.tabs.onUpdated.addListener((tabId, changeInfo, tab) => {
   // This listener is currently not performing any actions related to debugger attachment.
-  // It can be removed if no other tab update logic is needed.
 });
 
-// Bootstrap: register the content script
 (async () => {
   await unregisterScript();
   await registerScript();

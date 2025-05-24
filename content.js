@@ -7,7 +7,6 @@
     // Context invalidation check - initial
     if (!chrome.runtime?.id) {
       // console.log('[CS] Context invalidated at checkForAdModule start (initial check). Observers/intervals should stop if extension is updated/disabled.');
-      // No need to explicitly stop observers/intervals here, as they won't run effectively if the context is gone.
       return;
     }
 
@@ -21,12 +20,12 @@
       if (!adReportedAsStarted) {
         // Context invalidation check - before async operation
         if (!chrome.runtime?.id) {
-          console.log('[CS] Context invalidated, checkForAdModule aborted before storage.get.');
+          console.log('[CS] Context invalidated, checkForAdModule aborted before storage.get for ad start.');
           return;
         }
         chrome.storage.local.get('enabled', ({ enabled = true }) => {
           if (!chrome.runtime?.id) {
-            console.log('[CS] Context invalidated after storage.get in checkForAdModule.');
+            console.log('[CS] Context invalidated after storage.get in checkForAdModule for ad start.');
             return;
           }
           if (enabled) {
@@ -38,15 +37,44 @@
               console.log('[CS] Context invalidated just before sending adPlaybackStarted message.');
             }
           } else {
-            // console.log('[CS] Ad playback detected, but extension is disabled.');
+            // console.log('[CS] Ad playback detected (ad module visible), but extension is disabled.');
           }
         });
       }
     } else {
+      // Ad module is not visible or not found
       if (adReportedAsStarted) {
-        // console.log('[CS] Ad module no longer detected/visible, resetting flag.');
-        adReportedAsStarted = false;
+        // This block executes when an ad was previously reported as started, and now no ad module is visible.
+        // Context invalidation check - before async operation for ad end
+        if (!chrome.runtime?.id) {
+          console.log('[CS] Context invalidated before storage.get for ad end. Resetting adReportedAsStarted.');
+          adReportedAsStarted = false; // Reset state even if context is lost
+          return;
+        }
+        chrome.storage.local.get('enabled', ({ enabled = true }) => {
+          // Check context again inside the async callback
+          if (!chrome.runtime?.id) {
+            console.log('[CS] Context invalidated after storage.get for ad end. Resetting adReportedAsStarted.');
+            adReportedAsStarted = false; // Reset state even if context is lost
+            return;
+          }
+          if (enabled) {
+            console.log('[CS] Ad playback ended (ad module no longer visible), sending message to background.');
+            // Check context one last time before sending the message
+            if (chrome.runtime?.id) {
+              chrome.runtime.sendMessage({ action: 'adPlaybackEnded' });
+            } else {
+              console.log('[CS] Context invalidated just before sending adPlaybackEnded message.');
+            }
+          } else {
+            // console.log('[CS] Ad playback ended (ad module no longer visible), but extension is disabled.');
+          }
+          // Crucially, reset adReportedAsStarted to false *after* handling the ad end logic.
+          // This happens regardless of whether the message was sent (e.g. if disabled or context lost just before send).
+          adReportedAsStarted = false; 
+        });
       }
+      // If adReportedAsStarted was already false, nothing to do here.
     }
   }
 
